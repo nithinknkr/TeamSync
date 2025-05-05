@@ -6,6 +6,7 @@ import SignupPage from './pages/SignupPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import Dashboard from './pages/Dashboard';
+import TasksPage from './pages/TasksPage';
 import PrivateRoute from './components/PrivateRoute';
 
 function App() {
@@ -21,6 +22,22 @@ function App() {
           <Route path="/dashboard" element={
             <PrivateRoute>
               <Dashboard />
+            </PrivateRoute>
+          } />
+          {/* Add the missing routes for tasks, projects, and calendar */}
+          <Route path="/tasks" element={
+            <PrivateRoute>
+              <TasksPage />
+            </PrivateRoute>
+          } />
+          <Route path="/projects" element={
+            <PrivateRoute>
+              <Dashboard activeTab="projects" />
+            </PrivateRoute>
+          } />
+          <Route path="/calendar" element={
+            <PrivateRoute>
+              <Dashboard activeTab="calendar" />
             </PrivateRoute>
           } />
         </Routes>

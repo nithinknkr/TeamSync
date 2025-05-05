@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const userRoutes = require('./routes/userRoutes');
+const taskRoutes = require('./routes/taskRoutes');
+const projectRoutes = require('./routes/projectRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -16,6 +18,8 @@ app.use(express.json());
 
 // Routes
 app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/tasks', taskRoutes);
+app.use('/api/v1/projects', projectRoutes);
 
 // Root route
 app.get('/', (req, res) => {

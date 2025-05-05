@@ -30,11 +30,16 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUserData = async (token) => {
     try {
-      // You would typically have an endpoint to get user data
-      // For now, we'll just decode the token or set a placeholder
-      setCurrentUser({ token }); // Replace with actual user data
+      // Make a request to get the current user's data
+      const response = await axios.get('http://localhost:5000/api/v1/users/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setCurrentUser(response.data.data.user);
     } catch (error) {
       console.error('Error fetching user data:', error);
+      // If there's an error, we'll just use the token
+      setCurrentUser({ token });
     } finally {
       setLoading(false);
     }
