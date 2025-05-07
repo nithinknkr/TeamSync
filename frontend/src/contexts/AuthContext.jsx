@@ -79,8 +79,9 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     setCurrentUser(null);
+    setLoading(false);
   };
-
+  
   const forgotPassword = async (email) => {
     try {
       setError('');
@@ -110,13 +111,12 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     currentUser,
-    loading,
-    error,
-    signup,
     login,
-    logout,
+    signup,
     forgotPassword,
-    resetPassword
+    resetPassword,
+    logout,
+    loading
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,10 +1,11 @@
-import { FaTasks, FaProjectDiagram, FaCalendarAlt, FaPlus } from 'react-icons/fa';
+import { FaTasks, FaProjectDiagram, FaCalendarAlt, FaPlus, FaHome } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
 const Sidebar = ({ activeTab }) => {
   const navigate = useNavigate();
   
   const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: <FaHome />, href: '/dashboard' },
     { id: 'tasks', label: 'My Tasks', icon: <FaTasks />, href: '/tasks' },
     { id: 'projects', label: 'Projects', icon: <FaProjectDiagram />, href: '/projects' },
     { id: 'calendar', label: 'Calendar', icon: <FaCalendarAlt />, href: '/calendar' }

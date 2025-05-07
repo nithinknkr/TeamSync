@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { FaTimes } from 'react-icons/fa';
 import axios from 'axios';
 
-const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [] }) => {
+const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [], isProjectTask = false }) => {
   const [formData, setFormData] = useState({
     title: initialData?.title || '',
     description: initialData?.description || '',
@@ -16,6 +16,16 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [] }) =
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // If this is a project task form, set the project ID
+  useEffect(() => {
+    if (isProjectTask && projects.length === 1) {
+      setFormData(prev => ({
+        ...prev,
+        project: projects[0]._id
+      }));
+    }
+  }, [isProjectTask, projects]);
   
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -42,11 +52,13 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [] }) =
       const taskData = {
         ...formData,
         tags,
-        isPersonal: !formData.project
+        isPersonal: !isProjectTask
       };
       
-      // Remove empty project field
-      if (!taskData.project) delete taskData.project;
+      // Remove project field for personal tasks
+      if (!isProjectTask) {
+        delete taskData.project;
+      }
       
       let response;
       
@@ -59,41 +71,50 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [] }) =
         );
       } else {
         // Create new task
-        response = await axios.post('http://localhost:5000/api/v1/tasks', taskData, config);
+        response = await axios.post(
+          `http://localhost:5000/api/v1/tasks/${isProjectTask ? `?projectId=${taskData.project}` : ''}`,
+          taskData,
+          config
+        );
       }
       
       onTaskAdded(response.data.data.task);
       onClose();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save task. Please try again.');
+    } catch (error) {
+      setError(error.response?.data?.message || 'Failed to save task');
     } finally {
       setLoading(false);
     }
   };
-  
+
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative">
-        <button 
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-        >
-          <FaTimes />
-        </button>
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center p-4 border-b">
+          <h2 className="text-lg font-medium text-gray-900">
+            {initialData ? 'Edit Task' : isProjectTask ? 'Assign Project Task' : 'Create New Task'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-500"
+          >
+            <FaTimes className="h-5 w-5" />
+          </button>
+        </div>
         
-        <h2 className="text-xl font-semibold mb-4">
-          {initialData ? 'Edit Task' : 'Create New Task'}
-        </h2>
-        
-        {error && (
-          <div className="mb-4 p-2 bg-red-100 text-red-700 rounded">
-            {error}
-          </div>
-        )}
-        
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+              <div className="flex">
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div>
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700">
               Title *
             </label>
             <input
@@ -103,13 +124,12 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [] }) =
               value={formData.title}
               onChange={handleChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-black focus:border-black"
-              placeholder="Task title"
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black sm:text-sm"
             />
           </div>
           
-          <div className="mb-4">
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+          <div>
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
               Description
             </label>
             <textarea
@@ -117,15 +137,14 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [] }) =
               name="description"
               value={formData.description}
               onChange={handleChange}
-              rows="3"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-black focus:border-black"
-              placeholder="Task description"
-            ></textarea>
+              rows={3}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black sm:text-sm"
+            />
           </div>
           
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700">
                 Status
               </label>
               <select
@@ -133,7 +152,7 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [] }) =
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-black focus:border-black"
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black sm:text-sm"
               >
                 <option value="To Do">To Do</option>
                 <option value="In Progress">In Progress</option>
@@ -143,7 +162,7 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [] }) =
             </div>
             
             <div>
-              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="priority" className="block text-sm font-medium text-gray-700">
                 Priority
               </label>
               <select
@@ -151,7 +170,7 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [] }) =
                 name="priority"
                 value={formData.priority}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-black focus:border-black"
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black sm:text-sm"
               >
                 <option value="Low">Low</option>
                 <option value="Medium">Medium</option>
@@ -160,8 +179,8 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [] }) =
             </div>
           </div>
           
-          <div className="mb-4">
-            <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-1">
+          <div>
+            <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700">
               Due Date
             </label>
             <input
@@ -170,33 +189,37 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [] }) =
               name="dueDate"
               value={formData.dueDate}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-black focus:border-black"
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black sm:text-sm"
             />
           </div>
           
-          <div className="mb-4">
-            <label htmlFor="project" className="block text-sm font-medium text-gray-700 mb-1">
-              Project (Optional)
-            </label>
-            <select
-              id="project"
-              name="project"
-              value={formData.project}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-black focus:border-black"
-            >
-              <option value="">Personal Task (No Project)</option>
-              {projects.map(project => (
-                <option key={project._id} value={project._id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Only show project field for project tasks */}
+          {isProjectTask && (
+            <div>
+              <label htmlFor="project" className="block text-sm font-medium text-gray-700">
+                Project
+              </label>
+              <select
+                id="project"
+                name="project"
+                value={formData.project}
+                onChange={handleChange}
+                disabled={projects.length === 1} // Disable if there's only one project (from project detail page)
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black sm:text-sm"
+              >
+                <option value="">Select a project</option>
+                {projects.map(project => (
+                  <option key={project._id} value={project._id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           
-          <div className="mb-6">
-            <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-1">
-              Tags (Comma separated)
+          <div>
+            <label htmlFor="tags" className="block text-sm font-medium text-gray-700">
+              Tags (comma separated)
             </label>
             <input
               type="text"
@@ -204,23 +227,23 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [] }) =
               name="tags"
               value={formData.tags}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-black focus:border-black"
-              placeholder="e.g. urgent, meeting, report"
+              placeholder="e.g. frontend, bug, feature"
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black sm:text-sm"
             />
           </div>
           
-          <div className="flex justify-end space-x-3">
+          <div className="flex justify-end pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+              className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black mr-2"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+              className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
             >
               {loading ? 'Saving...' : initialData ? 'Update Task' : 'Create Task'}
             </button>

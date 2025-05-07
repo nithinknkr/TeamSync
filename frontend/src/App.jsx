@@ -8,6 +8,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import Dashboard from './pages/Dashboard';
 import TasksPage from './pages/TasksPage';
 import PrivateRoute from './components/PrivateRoute';
+import ProjectDetailPage from './pages/ProjectDetailPage';
 
 function App() {
   return (
@@ -33,6 +34,11 @@ function App() {
           <Route path="/projects" element={
             <PrivateRoute>
               <Dashboard activeTab="projects" />
+            </PrivateRoute>
+          } />
+          <Route path="/projects/:projectId" element={
+            <PrivateRoute>
+              <ProjectDetailPage />
             </PrivateRoute>
           } />
           <Route path="/calendar" element={
