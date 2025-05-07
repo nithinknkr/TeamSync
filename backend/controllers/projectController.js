@@ -129,7 +129,84 @@ exports.addProjectTask = async (req, res) => {
   }
 };
 
-// Add these controller functions if they don't exist
+// Add these controller functions
+
+// Add this controller function if it doesn't exist already
+
+// Get public project info (no auth required)
+exports.getPublicProjectInfo = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id)
+      .select('name description');
+    
+    if (!project) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Project not found'
+      });
+    }
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        project
+      }
+    });
+  } catch (err) {
+    res.status(400).json({
+      status: 'fail',
+      message: err.message
+    });
+  }
+};
+
+// Join a project
+exports.joinProject = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    
+    if (!project) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Project not found'
+      });
+    }
+    
+    // Check if user is already a member
+    const isMember = project.members.some(member => 
+      member.user.toString() === req.user.id
+    );
+    
+    if (isMember) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'You are already a member of this project'
+      });
+    }
+    
+    // Add user to project members
+    project.members.push({
+      user: req.user.id,
+      role: 'Member',
+      joinedAt: Date.now()
+    });
+    
+    // Update last activity
+    project.lastActivity = Date.now();
+    
+    await project.save();
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'You have successfully joined the project'
+    });
+  } catch (err) {
+    res.status(400).json({
+      status: 'fail',
+      message: err.message
+    });
+  }
+};
 
 // Get a single project
 exports.getProject = async (req, res) => {
@@ -276,11 +353,12 @@ exports.getProjectMembers = async (req, res) => {
 
 // Add this controller function for project invitations
 
+// Update the inviteToProject function to use the new join URL:
 exports.inviteToProject = async (req, res) => {
   try {
     const { emails, message } = req.body;
     
-    if (!emails || !Array.isArray(emails) || emails.length === 0) {
+    if (!emails || emails.length === 0) {
       return res.status(400).json({
         status: 'fail',
         message: 'Please provide at least one email address'
@@ -296,8 +374,12 @@ exports.inviteToProject = async (req, res) => {
       });
     }
     
-    // Check if user is the project lead
-    if (project.lead.toString() !== req.user.id) {
+    // Check if user is the project lead or has permission
+    const userMember = project.members.find(
+      member => member.user.toString() === req.user.id
+    );
+    
+    if (project.lead.toString() !== req.user.id && (!userMember || userMember.role !== 'Lead')) {
       return res.status(403).json({
         status: 'fail',
         message: 'Only the project lead can send invitations'
@@ -307,37 +389,41 @@ exports.inviteToProject = async (req, res) => {
     // Get the inviter's name
     const inviter = await User.findById(req.user.id);
     
-    // Generate invitation link
-    const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/projects/${project._id}`;
+    // Generate invitation link - use the new join URL
+    const inviteLink = `${process.env.FRONTEND_URL}/projects/join/${project._id}`;
     
     // Send invitation emails
-    const emailPromises = emails.map(async (email) => {
-      // Check if user already exists
-      const existingUser = await User.findOne({ email });
-      
-      // Create HTML content for the email
-      const htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Project Invitation</h2>
-          <p>Hello,</p>
-          <p>${inviter.name} has invited you to join the project "${project.name}" on TeamSync.</p>
-          <p>${message || ''}</p>
-          <p>Click the button below to join:</p>
-          <a href="${inviteLink}" style="display: inline-block; background-color: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin: 15px 0;">Join Project</a>
-          <p>If you don't have an account yet, you'll need to sign up first.</p>
-          <p>Thank you,<br>TeamSync Team</p>
-        </div>
-      `;
-      
-      return sendEmail({
-        email,
-        subject: `Invitation to join project: ${project.name}`,
-        message: `${inviter.name} has invited you to join the project "${project.name}" on TeamSync. ${message || ''} Join here: ${inviteLink}`,
-        html: htmlContent
-      });
-    });
+    const sendEmail = require('../utils/email');
     
-    await Promise.all(emailPromises);
+    for (const email of emails) {
+      try {
+        // Create HTML content for the email
+        const htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Project Invitation</h2>
+            <p>Hello,</p>
+            <p>${inviter.name} has invited you to join the project "${project.name}" on TeamSync.</p>
+            <p>${message || ''}</p>
+            <p>Click the button below to join:</p>
+            <a href="${inviteLink}" style="display: inline-block; background-color: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin: 15px 0;">Join Project</a>
+            <p>If you don't have an account yet, you'll need to sign up first.</p>
+            <p>Thank you,<br>TeamSync Team</p>
+          </div>
+        `;
+        
+        await sendEmail({
+          email,
+          subject: `Invitation to join project: ${project.name}`,
+          message: `${inviter.name} has invited you to join the project "${project.name}" on TeamSync. ${message || ''} Join here: ${inviteLink}`,
+          html: htmlContent
+        });
+        
+        console.log(`Invitation sent to ${email}`);
+      } catch (emailError) {
+        console.error(`Failed to send invitation to ${email}:`, emailError);
+        // Continue with other emails even if one fails
+      }
+    }
     
     res.status(200).json({
       status: 'success',

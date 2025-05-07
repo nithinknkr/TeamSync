@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import TasksPage from './pages/TasksPage';
 import PrivateRoute from './components/PrivateRoute';
 import ProjectDetailPage from './pages/ProjectDetailPage';
+import ProjectJoinPage from './pages/ProjectJoinPage';
 
 function App() {
   return (
@@ -41,6 +42,8 @@ function App() {
               <ProjectDetailPage />
             </PrivateRoute>
           } />
+          {/* Add the new route for project join */}
+          <Route path="/projects/join/:projectId" element={<ProjectJoinPage />} />
           <Route path="/calendar" element={
             <PrivateRoute>
               <Dashboard activeTab="calendar" />

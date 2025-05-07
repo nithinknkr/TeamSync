@@ -343,7 +343,7 @@ const ProjectDetailPage = () => {
                   <h2 className="text-lg font-medium text-gray-900">Team Members</h2>
                   {isTeamLead && (
                     <button
-                      onClick={() => setShowInviteForm(true)}
+                      onClick={handleInviteClick}
                       className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                     >
                       <FaEnvelope className="mr-2 h-4 w-4" />

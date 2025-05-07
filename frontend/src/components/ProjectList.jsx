@@ -101,13 +101,14 @@ const ProjectList = ({ projects, onProjectAdded }) => {
                       >
                         <FaLink className="h-4 w-4" />
                       </button>
-                      <button 
-                        onClick={(e) => handleInviteClick(e, project)}
-                        className="p-1 text-gray-500 hover:text-gray-700"
-                        title="Invite team members"
-                      >
-                        <FaEnvelope className="h-4 w-4" />
-                      </button>
+                      // In the JSX where the invite button is rendered:
+                                        <button
+                                          onClick={(e) => handleInviteClick(e, project)}
+                                          className="text-gray-500 hover:text-gray-700"
+                                          title="Invite members"
+                                        >
+                                          <FaEnvelope className="h-4 w-4" />
+                                        </button>
                     </div>
                   )}
                 </div>

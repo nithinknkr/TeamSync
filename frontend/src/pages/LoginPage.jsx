@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Logo from '../components/Logo';
 
@@ -10,6 +10,11 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get redirect URL from query params
+  const queryParams = new URLSearchParams(location.search);
+  const redirectUrl = queryParams.get('redirect') || '/dashboard';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,7 +23,7 @@ const LoginPage = () => {
       setError('');
       setLoading(true);
       await login(email, password);
-      navigate('/dashboard');
+      navigate(redirectUrl);
     } catch (error) {
       setError(error.response?.data?.message || 'Failed to log in');
     } finally {
@@ -35,9 +40,10 @@ const LoginPage = () => {
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Sign in to your account
         </h2>
+        // In the JSX where the signup link is rendered:
         <p className="mt-2 text-center text-sm text-gray-600">
           Or{' '}
-          <Link to="/signup" className="font-medium text-black hover:text-gray-800">
+          <Link to={`/signup${location.search}`} className="font-medium text-black hover:text-gray-800">
             create a new account
           </Link>
         </p>

@@ -4,6 +4,9 @@ const authController = require('../controllers/authController');
 
 const router = express.Router();
 
+// Public route for project info (no auth required)
+router.get('/:id/public', projectController.getPublicProjectInfo);
+
 // Protect all routes after this middleware
 router.use(authController.protect);
 
@@ -26,5 +29,9 @@ router.route('/:id/members')
 // Add this route for project invitations
 router.route('/:id/invite')
   .post(projectController.inviteToProject);
+
+// Add this route for joining a project if it doesn't exist
+router.route('/:id/join')
+  .post(projectController.joinProject);
 
 module.exports = router;
