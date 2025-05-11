@@ -23,6 +23,7 @@ const LoginPage = () => {
       setError('');
       setLoading(true);
       await login(email, password);
+      // Navigate to the redirect URL after successful login
       navigate(redirectUrl);
     } catch (error) {
       setError(error.response?.data?.message || 'Failed to log in');

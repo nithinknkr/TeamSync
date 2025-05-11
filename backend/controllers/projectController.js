@@ -132,8 +132,6 @@ exports.addProjectTask = async (req, res) => {
 // Add these controller functions
 
 // Add this controller function if it doesn't exist already
-
-// Get public project info (no auth required)
 exports.getPublicProjectInfo = async (req, res) => {
   try {
     const project = await Project.findById(req.params.id)
@@ -300,9 +298,7 @@ exports.getProjectTasks = async (req, res) => {
 // Get project members
 exports.getProjectMembers = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id)
-      .populate('lead', 'name email')
-      .populate('members.user', 'name email');
+    const project = await Project.findById(req.params.id);
     
     if (!project) {
       return res.status(404).json({
@@ -313,35 +309,91 @@ exports.getProjectMembers = async (req, res) => {
     
     // Check if user is a member of the project
     const isMember = project.members.some(member => 
-      member.user._id.toString() === req.user.id
+      member.user.toString() === req.user.id
     );
     
-    if (!isMember && project.lead._id.toString() !== req.user.id) {
+    if (!isMember) {
       return res.status(403).json({
         status: 'fail',
-        message: 'You are not authorized to view this project'
+        message: 'You are not a member of this project'
       });
     }
     
-    // Format members data
-    const members = [
-      {
-        user: project.lead,
-        role: 'Lead',
-        joinedAt: project.createdAt
-      },
-      ...project.members.map(member => ({
-        user: member.user,
-        role: member.role,
-        joinedAt: member.joinedAt
-      }))
-    ];
+    // Get all member user IDs
+    const memberIds = project.members.map(member => member.user);
+    
+    // Fetch member details from User model
+    const memberUsers = await User.find({ _id: { $in: memberIds } })
+      .select('name email');
+    
+    // Combine user details with role information
+    const membersWithRoles = memberUsers.map(user => {
+      const memberInfo = project.members.find(
+        member => member.user.toString() === user._id.toString()
+      );
+      
+      return {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: memberInfo.role,
+        joinedAt: memberInfo.joinedAt
+      };
+    });
     
     res.status(200).json({
       status: 'success',
       data: {
-        members
+        members: membersWithRoles
       }
+    });
+  } catch (err) {
+    res.status(400).json({
+      status: 'fail',
+      message: err.message
+    });
+  }
+};
+
+// Update the joinProject function to properly handle the join process
+exports.joinProject = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    
+    if (!project) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Project not found'
+      });
+    }
+    
+    // Check if user is already a member
+    const isMember = project.members.some(member => 
+      member.user.toString() === req.user.id
+    );
+    
+    if (isMember) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'You are already a member of this project'
+      });
+    }
+    
+    // Add user to project members
+    project.members.push({
+      user: req.user.id,
+      role: 'Member',
+      joinedAt: Date.now()
+    });
+    
+    // Update last activity
+    project.lastActivity = Date.now();
+    
+    await project.save();
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'You have successfully joined the project'
     });
   } catch (err) {
     res.status(400).json({
@@ -353,7 +405,7 @@ exports.getProjectMembers = async (req, res) => {
 
 // Add this controller function for project invitations
 
-// Update the inviteToProject function to use the new join URL:
+// Update the inviteToProject function to use the new join URL
 exports.inviteToProject = async (req, res) => {
   try {
     const { emails, message } = req.body;
@@ -389,8 +441,8 @@ exports.inviteToProject = async (req, res) => {
     // Get the inviter's name
     const inviter = await User.findById(req.user.id);
     
-    // Generate invitation link - use the new join URL
-    const inviteLink = `${process.env.FRONTEND_URL}/projects/join/${project._id}`;
+    // Generate invitation link - use the join URL
+    const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/projects/join/${project._id}`;
     
     // Send invitation emails
     const sendEmail = require('../utils/email');

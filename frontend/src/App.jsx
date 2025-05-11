@@ -26,7 +26,6 @@ function App() {
               <Dashboard />
             </PrivateRoute>
           } />
-          {/* Add the missing routes for tasks, projects, and calendar */}
           <Route path="/tasks" element={
             <PrivateRoute>
               <TasksPage />
@@ -37,13 +36,13 @@ function App() {
               <Dashboard activeTab="projects" />
             </PrivateRoute>
           } />
+          {/* Project join route must come before the projectId route */}
+          <Route path="/projects/join/:projectId" element={<ProjectJoinPage />} />
           <Route path="/projects/:projectId" element={
             <PrivateRoute>
               <ProjectDetailPage />
             </PrivateRoute>
           } />
-          {/* Add the new route for project join */}
-          <Route path="/projects/join/:projectId" element={<ProjectJoinPage />} />
           <Route path="/calendar" element={
             <PrivateRoute>
               <Dashboard activeTab="calendar" />

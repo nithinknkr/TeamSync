@@ -31,14 +31,14 @@ const ProjectList = ({ projects, onProjectAdded }) => {
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="p-4 border-b border-gray-200 flex justify-between items-center">
         <h2 className="text-lg font-medium text-gray-900">My Projects</h2>
-        <button 
+        <button
           onClick={() => setShowProjectForm(true)}
           className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
         >
           New Project
         </button>
       </div>
-      
+
       <div className="overflow-hidden">
         {projects.length === 0 ? (
           <div className="p-8 text-center">
@@ -47,8 +47,8 @@ const ProjectList = ({ projects, onProjectAdded }) => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
             {projects.map(project => (
-              <div 
-                key={project._id} 
+              <div
+                key={project._id}
                 className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-200 cursor-pointer"
                 onClick={() => handleProjectClick(project)}
               >
@@ -58,7 +58,7 @@ const ProjectList = ({ projects, onProjectAdded }) => {
                     <p className="mt-1 text-sm text-gray-500 line-clamp-2">{project.description}</p>
                   )}
                 </div>
-                
+
                 <div className="px-4 py-3 bg-gray-50 text-sm">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center text-gray-500">
@@ -70,12 +70,12 @@ const ProjectList = ({ projects, onProjectAdded }) => {
                       <span>{project.taskCount || 0} Tasks</span>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center text-gray-500 mb-2">
                     <FaCalendarAlt className="mr-2 h-4 w-4" />
                     <span>Created: {format(new Date(project.createdAt), 'MMM dd, yyyy')}</span>
                   </div>
-                  
+
                   {project.progress !== undefined && (
                     <div className="mt-2 mb-3">
                       <div className="flex items-center justify-between mb-1">
@@ -83,18 +83,18 @@ const ProjectList = ({ projects, onProjectAdded }) => {
                         <span className="text-xs font-medium text-gray-700">{project.progress}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-green-500 h-2 rounded-full" 
+                        <div
+                          className="bg-green-500 h-2 rounded-full"
                           style={{ width: `${project.progress}%` }}
                         ></div>
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Project actions */}
                   {project.userRole === 'Lead' && (
                     <div className="flex justify-end space-x-2 mt-2">
-                      <button 
+                      <button
                         onClick={(e) => handleCopyLink(e, project._id)}
                         className="p-1 text-gray-500 hover:text-gray-700"
                         title="Copy project link"
@@ -102,13 +102,13 @@ const ProjectList = ({ projects, onProjectAdded }) => {
                         <FaLink className="h-4 w-4" />
                       </button>
                       // In the JSX where the invite button is rendered:
-                                        <button
-                                          onClick={(e) => handleInviteClick(e, project)}
-                                          className="text-gray-500 hover:text-gray-700"
-                                          title="Invite members"
-                                        >
-                                          <FaEnvelope className="h-4 w-4" />
-                                        </button>
+                      <button
+                        onClick={(e) => handleInviteClick(e, project)}
+                        className="text-gray-500 hover:text-gray-700"
+                        title="Invite members"
+                      >
+                        <FaEnvelope className="h-4 w-4" />
+                      </button>
                     </div>
                   )}
                 </div>
@@ -117,26 +117,26 @@ const ProjectList = ({ projects, onProjectAdded }) => {
           </div>
         )}
       </div>
-      
+
       {/* Project Form Modal */}
       {showProjectForm && (
-        <ProjectForm 
-          onClose={() => setShowProjectForm(false)} 
+        <ProjectForm
+          onClose={() => setShowProjectForm(false)}
           onProjectAdded={(newProject) => {
             if (onProjectAdded) onProjectAdded(newProject);
             setShowProjectForm(false);
-          }} 
+          }}
         />
       )}
-      
+
       {/* Invite Form Modal */}
       {showInviteForm && selectedProject && (
-        <ProjectInviteForm 
+        <ProjectInviteForm
           project={selectedProject}
           onClose={() => {
             setShowInviteForm(false);
             setSelectedProject(null);
-          }} 
+          }}
         />
       )}
     </div>
