@@ -228,3 +228,39 @@ exports.getMe = async (req, res) => {
     });
   }
 };
+
+// isLoggedIn middleware - won't error if no token, but will set req.user if there is a valid token
+exports.isLoggedIn = async (req, res, next) => {
+  try {
+    // 1) Getting token and check if it's there
+    let token;
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith('Bearer')
+    ) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (!token) {
+      // No token, but that's ok - move on without setting req.user
+      return next();
+    }
+
+    // 2) Verification token
+    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+
+    // 3) Check if user still exists
+    const currentUser = await User.findById(decoded.id);
+    if (!currentUser) {
+      // User no longer exists, but we still proceed
+      return next();
+    }
+
+    // Set user if everything is good
+    req.user = currentUser;
+    next();
+  } catch (err) {
+    // Error with token, but we still proceed without setting req.user
+    next();
+  }
+};

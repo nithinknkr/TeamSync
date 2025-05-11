@@ -5,6 +5,7 @@ const cors = require('cors');
 const userRoutes = require('./routes/userRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const projectRoutes = require('./routes/projectRoutes');
+const taskRouter = require('./routes/taskRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -20,6 +21,12 @@ app.use(express.json());
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/tasks', taskRoutes);
 app.use('/api/v1/projects', projectRoutes);
+
+// Add this to your existing app.js file where you define your routes
+
+
+// Add this to your middleware section
+app.use('/api/v1/tasks', taskRouter);
 
 // Root route
 app.get('/', (req, res) => {

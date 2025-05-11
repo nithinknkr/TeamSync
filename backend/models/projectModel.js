@@ -10,6 +10,12 @@ const projectSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  workspaceCode: {
+    type: String,
+    default: function() {
+      return 'WS-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+  },
   lead: {
     type: mongoose.Schema.ObjectId,
     ref: 'User',

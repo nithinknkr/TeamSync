@@ -69,6 +69,13 @@ export const AuthProvider = ({ children }) => {
       const { token, data } = response.data;
       localStorage.setItem('token', token);
       setCurrentUser(data.user);
+      
+      // If there's a pending join redirect, remember that the user just logged in
+      const savedRedirect = localStorage.getItem('joinRedirect');
+      if (savedRedirect && savedRedirect.includes('/projects/join/')) {
+        localStorage.setItem('justLoggedIn', 'true');
+      }
+      
       return response.data;
     } catch (error) {
       setError(error.response?.data?.message || 'Failed to log in');
@@ -111,6 +118,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     currentUser,
+    isAuthenticated: !!currentUser,
     login,
     signup,
     forgotPassword,

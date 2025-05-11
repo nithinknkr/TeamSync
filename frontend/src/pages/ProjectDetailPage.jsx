@@ -82,6 +82,10 @@ const ProjectDetailPage = () => {
     alert('Project link copied to clipboard!');
   };
   
+  const handleInviteClick = () => {
+    setShowInviteForm(true);
+  };
+  
   const isTeamLead = project?.userRole === 'Lead';
   
   if (loading) {
@@ -156,7 +160,7 @@ const ProjectDetailPage = () => {
                         Copy Link
                       </button>
                       <button
-                        onClick={() => setShowInviteForm(true)}
+                        onClick={handleInviteClick}
                         className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                       >
                         <FaEnvelope className="mr-2 h-4 w-4" />
@@ -358,7 +362,7 @@ const ProjectDetailPage = () => {
                       <p className="text-gray-500">No team members found for this project.</p>
                       {isTeamLead && (
                         <button
-                          onClick={() => setShowInviteForm(true)}
+                          onClick={handleInviteClick}
                           className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                         >
                           <FaEnvelope className="mr-2 h-4 w-4" />
@@ -389,17 +393,17 @@ const ProjectDetailPage = () => {
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {members.map(member => (
-                          <tr key={member.user._id} className="hover:bg-gray-50">
+                          <tr key={member._id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
                                 <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
                                   <span className="text-gray-500 font-medium">
-                                    {member.user.name.charAt(0).toUpperCase()}
+                                    {member.name ? member.name.charAt(0).toUpperCase() : '?'}
                                   </span>
                                 </div>
                                 <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">{member.user.name}</div>
-                                  <div className="text-sm text-gray-500">{member.user.email}</div>
+                                  <div className="text-sm font-medium text-gray-900">{member.name}</div>
+                                  <div className="text-sm text-gray-500">{member.email}</div>
                                 </div>
                               </div>
                             </td>
@@ -433,7 +437,7 @@ const ProjectDetailPage = () => {
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {format(new Date(member.joinedAt), 'MMM dd, yyyy')}
+                              {member.joinedAt ? format(new Date(member.joinedAt), 'MMM dd, yyyy') : 'N/A'}
                             </td>
                           </tr>
                         ))}
@@ -542,15 +546,16 @@ const ProjectDetailPage = () => {
       
       {/* Task Form Modal */}
       {showTaskForm && (
-        <TaskForm 
+        <TaskForm
           onClose={() => {
             setShowTaskForm(false);
             setEditingTask(null);
-          }} 
+          }}
           onTaskAdded={handleTaskAdded}
-          projects={[project]}
+          onTaskUpdated={handleTaskUpdated}
+          initialData={editingTask}
+          projects={[project].filter(Boolean)}
           isProjectTask={true}
-          initialData={editingTask || { project: project._id }}
         />
       )}
       
@@ -559,18 +564,19 @@ const ProjectDetailPage = () => {
         <TaskDetail
           task={selectedTask}
           onClose={() => setSelectedTask(null)}
-          onTaskUpdated={handleTaskUpdated}
-          onTaskDeleted={(deletedTaskId) => {
-            setTasks(prevTasks => prevTasks.filter(task => task._id !== deletedTaskId));
+          onEdit={() => {
+            setEditingTask(selectedTask);
             setSelectedTask(null);
+            setShowTaskForm(true);
           }}
+          canEdit={isTeamLead || selectedTask.assignedTo?._id === currentUser?.id}
         />
       )}
       
-      {/* Project Invite Form Modal would be here */}
+      {/* Invite Form Modal */}
       {showInviteForm && (
         <ProjectInviteForm
-          projectId={projectId}
+          project={project}
           onClose={() => setShowInviteForm(false)}
         />
       )}

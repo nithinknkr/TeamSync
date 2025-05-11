@@ -1,6 +1,7 @@
 const Project = require('../models/projectModel');
 const Task = require('../models/taskModel');
 const User = require('../models/userModel');
+const mongoose = require('mongoose');
 
 // Get all projects for a user
 exports.getUserProjects = async (req, res) => {
@@ -129,28 +130,56 @@ exports.addProjectTask = async (req, res) => {
   }
 };
 
-// Add these controller functions
-
-// Add this controller function if it doesn't exist already
+// Get public project info
 exports.getPublicProjectInfo = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id)
-      .select('name description');
+    console.log(`Getting public info for project ID: ${req.params.id}`);
+    
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Invalid project ID format'
+      });
+    }
+    
+    // Get full project with members to check membership
+    const project = await Project.findById(req.params.id);
     
     if (!project) {
+      console.log(`Project not found: ${req.params.id}`);
       return res.status(404).json({
         status: 'fail',
         message: 'Project not found'
       });
     }
     
+    // If user is authenticated, check if they're already a member
+    let isMember = false;
+    if (req.user) {
+      console.log(`Checking if user ${req.user.id} is a member of project ${project._id}`);
+      isMember = project.members.some(member => 
+        member.user.toString() === req.user.id
+      );
+      console.log(`User is${isMember ? '' : ' not'} a member of this project`);
+    }
+    
+    console.log(`Returning public info for project: ${project.name}`);
+    
     res.status(200).json({
       status: 'success',
       data: {
-        project
+        project: {
+          _id: project._id,
+          name: project.name,
+          description: project.description,
+          createdAt: project.createdAt,
+          workspaceCode: project.workspaceCode,
+          isMember: isMember
+        }
       }
     });
   } catch (err) {
+    console.error(`Error in getPublicProjectInfo: ${err.message}`);
     res.status(400).json({
       status: 'fail',
       message: err.message
@@ -176,8 +205,10 @@ exports.joinProject = async (req, res) => {
     );
     
     if (isMember) {
-      return res.status(400).json({
-        status: 'fail',
+      // Return success but with a different message
+      return res.status(200).json({
+        status: 'success',
+        alreadyMember: true,
         message: 'You are already a member of this project'
       });
     }
@@ -355,56 +386,6 @@ exports.getProjectMembers = async (req, res) => {
   }
 };
 
-// Update the joinProject function to properly handle the join process
-exports.joinProject = async (req, res) => {
-  try {
-    const project = await Project.findById(req.params.id);
-    
-    if (!project) {
-      return res.status(404).json({
-        status: 'fail',
-        message: 'Project not found'
-      });
-    }
-    
-    // Check if user is already a member
-    const isMember = project.members.some(member => 
-      member.user.toString() === req.user.id
-    );
-    
-    if (isMember) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'You are already a member of this project'
-      });
-    }
-    
-    // Add user to project members
-    project.members.push({
-      user: req.user.id,
-      role: 'Member',
-      joinedAt: Date.now()
-    });
-    
-    // Update last activity
-    project.lastActivity = Date.now();
-    
-    await project.save();
-    
-    res.status(200).json({
-      status: 'success',
-      message: 'You have successfully joined the project'
-    });
-  } catch (err) {
-    res.status(400).json({
-      status: 'fail',
-      message: err.message
-    });
-  }
-};
-
-// Add this controller function for project invitations
-
 // Update the inviteToProject function to use the new join URL
 exports.inviteToProject = async (req, res) => {
   try {
@@ -442,10 +423,17 @@ exports.inviteToProject = async (req, res) => {
     const inviter = await User.findById(req.user.id);
     
     // Generate invitation link - use the join URL
-    const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/projects/join/${project._id}`;
+    // Make sure to use the proper full URL including protocol
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const inviteLink = `${frontendUrl}/projects/join/${project._id}`;
+    
+    console.log(`Generating invite link: ${inviteLink} for project ${project.name}`);
     
     // Send invitation emails
     const sendEmail = require('../utils/email');
+    
+    const successfulEmails = [];
+    const failedEmails = [];
     
     for (const email of emails) {
       try {
@@ -458,6 +446,7 @@ exports.inviteToProject = async (req, res) => {
             <p>${message || ''}</p>
             <p>Click the button below to join:</p>
             <a href="${inviteLink}" style="display: inline-block; background-color: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin: 15px 0;">Join Project</a>
+            <p>If the button doesn't work, you can copy and paste this link in your browser: ${inviteLink}</p>
             <p>If you don't have an account yet, you'll need to sign up first.</p>
             <p>Thank you,<br>TeamSync Team</p>
           </div>
@@ -471,21 +460,35 @@ exports.inviteToProject = async (req, res) => {
         });
         
         console.log(`Invitation sent to ${email}`);
+        successfulEmails.push(email);
       } catch (emailError) {
         console.error(`Failed to send invitation to ${email}:`, emailError);
+        failedEmails.push({
+          email,
+          error: emailError.message
+        });
         // Continue with other emails even if one fails
       }
     }
     
+    // Update the project's lastActivity field
+    project.lastActivity = Date.now();
+    await project.save();
+    
     res.status(200).json({
       status: 'success',
-      message: 'Invitations sent successfully'
+      message: 'Invitations sent successfully',
+      data: {
+        successful: successfulEmails,
+        failed: failedEmails
+      }
     });
   } catch (err) {
     console.error('Invitation error:', err);
     res.status(500).json({
       status: 'error',
-      message: 'Failed to send invitations. Please try again.'
+      message: 'Failed to send invitations. Please try again.',
+      error: err.message
     });
   }
 };

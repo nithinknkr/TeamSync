@@ -8,13 +8,34 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { login, currentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
   // Get redirect URL from query params
   const queryParams = new URLSearchParams(location.search);
   const redirectUrl = queryParams.get('redirect') || '/dashboard';
+
+  // Store redirect URL in localStorage
+  useEffect(() => {
+    if (redirectUrl && redirectUrl.includes('/projects/join/')) {
+      localStorage.setItem('joinRedirect', redirectUrl);
+    }
+  }, [redirectUrl]);
+
+  // Check if already logged in and has redirect
+  useEffect(() => {
+    if (currentUser) {
+      const savedRedirect = localStorage.getItem('joinRedirect');
+      if (savedRedirect && savedRedirect.includes('/projects/join/')) {
+        // Don't remove the redirect here, just navigate to it
+        // The ProjectJoinPage will handle the rest
+        navigate(savedRedirect);
+      } else if (redirectUrl) {
+        navigate(redirectUrl);
+      }
+    }
+  }, [currentUser, navigate, redirectUrl]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,8 +44,16 @@ const LoginPage = () => {
       setError('');
       setLoading(true);
       await login(email, password);
-      // Navigate to the redirect URL after successful login
-      navigate(redirectUrl);
+      
+      // Check if there's a saved project join redirect
+      const savedRedirect = localStorage.getItem('joinRedirect');
+      if (savedRedirect && savedRedirect.includes('/projects/join/')) {
+        // We'll set justLoggedIn flag in AuthContext, just navigate to the join page
+        navigate(savedRedirect);
+      } else {
+        // Otherwise navigate to the normal redirect URL
+        navigate(redirectUrl);
+      }
     } catch (error) {
       setError(error.response?.data?.message || 'Failed to log in');
     } finally {
@@ -41,7 +70,6 @@ const LoginPage = () => {
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Sign in to your account
         </h2>
-        // In the JSX where the signup link is rendered:
         <p className="mt-2 text-center text-sm text-gray-600">
           Or{' '}
           <Link to={`/signup${location.search}`} className="font-medium text-black hover:text-gray-800">
