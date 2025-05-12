@@ -116,3 +116,68 @@
   opacity: 1;
   transform: translateY(0);
 }
+
+/* Drag and Drop animations */
+@keyframes dragStart {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes dropComplete {
+  0% {
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 0 0px rgba(79, 70, 229, 0);
+  }
+}
+
+.task-dragging {
+  animation: dragStart 0.2s ease forwards;
+  z-index: 999;
+  @apply ring-2 ring-black ring-opacity-30;
+}
+
+.task-dropping {
+  animation: dropComplete 0.5s ease forwards;
+}
+
+.column-dragging-over {
+  @apply bg-gray-50;
+  transition: background-color 0.3s ease;
+}
+
+/* Toast animation */
+@keyframes toastIn {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toastOut {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+}
+
+.toast-enter {
+  animation: toastIn 0.3s ease forwards;
+}
+
+.toast-exit {
+  animation: toastOut 0.3s ease forwards;
+}

@@ -1,4 +1,4 @@
-import { FaTasks, FaProjectDiagram, FaCalendarAlt, FaPlus, FaHome } from 'react-icons/fa';
+import { FaTasks, FaProjectDiagram, FaCalendarAlt, FaHome } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
 const Sidebar = ({ activeTab }) => {
@@ -17,19 +17,6 @@ const Sidebar = ({ activeTab }) => {
 
   return (
     <div className="bg-gray-900 text-white w-64 flex-shrink-0 hidden md:block">
-      <div className="p-4">
-        <button 
-          className="w-full flex items-center justify-center space-x-2 bg-white text-gray-900 hover:bg-gray-100 py-2 px-4 rounded-md font-medium"
-          onClick={() => {
-            // Navigate to tasks page and set state to show the task form
-            navigate('/tasks', { state: { showTaskForm: true } });
-          }}
-        >
-          <FaPlus className="h-4 w-4" />
-          <span>New Task</span>
-        </button>
-      </div>
-      
       <nav className="mt-5">
         <div className="px-2 space-y-1">
           {menuItems.map(item => (

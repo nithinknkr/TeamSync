@@ -2,26 +2,80 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import Sidebar from '../components/Sidebar';
 import TaskForm from '../components/TaskForm';
 import TaskDetail from '../components/TaskDetail';
-import { FaPlus, FaFilter, FaCheck, FaHourglass, FaExclamationTriangle, FaLock } from 'react-icons/fa';
+import { FaPlus, FaFilter, FaCheck, FaHourglass, FaExclamationTriangle, FaLock, FaTimes } from 'react-icons/fa';
 import Header from '../components/Header';
+
+// Add these styles for drag-and-drop UI feedback
+const getItemStyle = (isDragging, draggableStyle) => ({
+  // styles we need to apply on draggables
+  ...draggableStyle,
+  // change background colour if dragging
+  background: isDragging ? 'white' : '',
+  boxShadow: isDragging ? '0 4px 6px rgba(0,0,0,0.1)' : '',
+  // styles we need to apply on draggables
+  ...draggableStyle
+});
+
+const getColumnStyle = isDraggingOver => ({
+  background: isDraggingOver ? 'rgba(229, 231, 235, 0.5)' : '',
+  borderRadius: '0.5rem',
+  transition: 'background-color 0.2s ease',
+});
+
+// Simple Toast component
+const Toast = ({ message, type, onClose }) => {
+  const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+  const [isExiting, setIsExiting] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsExiting(true);
+      
+      // Add delay for exit animation
+      setTimeout(() => {
+        onClose();
+      }, 300); // Match with the CSS animation duration
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div 
+      className={`fixed bottom-4 right-4 ${bgColor} text-white py-2 px-4 rounded-md shadow-lg flex items-center z-50 ${isExiting ? 'toast-exit' : 'toast-enter'}`}
+    >
+      <span>{message}</span>
+      <button 
+        onClick={() => {
+          setIsExiting(true);
+          setTimeout(onClose, 300);
+        }} 
+        className="ml-2 text-white hover:text-gray-200"
+      >
+        <FaTimes />
+      </button>
+    </div>
+  );
+};
 
 const TasksPage = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Check if we should show the task form based on navigation state
-  const initialShowTaskForm = location.state?.showTaskForm || false;
-
+  // Since we've removed the sidebar "New Task" button, we'll just initialize this to false
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  
   const [tasks, setTasks] = useState([]);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
-  const [showTaskForm, setShowTaskForm] = useState(initialShowTaskForm);
   const [editingTask, setEditingTask] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
 
@@ -32,6 +86,14 @@ const TasksPage = () => {
   });
 
   const [view, setView] = useState('list'); // 'list' or 'kanban'
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
+  const closeToast = () => {
+    setToast({ ...toast, show: false });
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,6 +141,7 @@ const TasksPage = () => {
       setTasks(prevTasks => [...prevTasks, newTask]);
     }
     setShowTaskForm(false);
+    showToast('Task added successfully!');
   };
 
   const handleTaskUpdated = (updatedTask, editMode = false) => {
@@ -97,6 +160,7 @@ const TasksPage = () => {
   const handleTaskDeleted = (taskId) => {
     setTasks(prevTasks => prevTasks.filter(task => task._id !== taskId));
     setSelectedTask(null);
+    showToast('Task deleted successfully!');
   };
 
   const handleFilterChange = (filterName, value) => {
@@ -104,6 +168,64 @@ const TasksPage = () => {
       ...prev,
       [filterName]: value
     }));
+  };
+
+  const handleDragStart = (start) => {
+    // You can add visual feedback when dragging starts
+    // e.g., highlight the source column
+    document.body.style.cursor = 'grabbing';
+  };
+
+  const handleDragEnd = async (result) => {
+    // Reset cursor
+    document.body.style.cursor = 'default';
+    
+    const { destination, source, draggableId } = result;
+
+    // If there's no destination or if the task was dropped back to its original position
+    if (!destination || 
+        (destination.droppableId === source.droppableId && 
+         destination.index === source.index)) {
+      return;
+    }
+
+    // Find the task that was dragged
+    const taskId = draggableId;
+    const taskToUpdate = tasks.find(task => task._id === taskId);
+    
+    if (!taskToUpdate) return;
+
+    try {
+      // Update the task status based on the destination column
+      const newStatus = destination.droppableId;
+      
+      // Show optimistic UI update with visual feedback
+      setTasks(prevTasks => 
+        prevTasks.map(task => 
+          task._id === taskId ? { ...task, status: newStatus, isUpdating: true } : task
+        )
+      );
+      
+      // Make API call to update the task status
+      const token = localStorage.getItem('token');
+      const response = await axios.patch(
+        `http://localhost:5000/api/v1/tasks/${taskId}`,
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Update with the actual response data
+      handleTaskUpdated(response.data.data.task);
+      
+      // Show success message
+      showToast(`Task moved to ${newStatus} successfully!`);
+    } catch (err) {
+      console.error('Error updating task status:', err);
+      // Revert to original state if there's an error
+      setTasks(prevTasks => [...prevTasks]);
+      setError('Failed to update task status. Please try again.');
+      showToast('Failed to update task status', 'error');
+    }
   };
 
   const filteredTasks = tasks.filter(task => {
@@ -166,6 +288,13 @@ const TasksPage = () => {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <Header />
+      {toast.show && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={closeToast}
+        />
+      )}
       <div className="flex flex-1 overflow-hidden">
         <Sidebar activeTab="tasks" />
 
@@ -372,62 +501,113 @@ const TasksPage = () => {
               </div>
             )}
 
-            {/* Kanban View */}
+            {/* Kanban View with Drag and Drop */}
             {view === 'kanban' && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {Object.entries(tasksByStatus).map(([status, statusTasks]) => (
-                  <div key={status} className="bg-white rounded-lg shadow">
-                    <div className="p-4 border-b border-gray-200">
-                      <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                        {getStatusIcon(status)}
-                        <span className="ml-2">{status}</span>
-                        <span className="ml-2 text-sm text-gray-500">({statusTasks.length})</span>
-                      </h3>
-                    </div>
-
-                    <div className="p-4 space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto">
-                      {statusTasks.length === 0 ? (
-                        <p className="text-gray-500 text-sm text-center py-4">No tasks</p>
-                      ) : (
-                        statusTasks.map(task => (
-                          <div
-                            key={task._id}
-                            className="border border-gray-200 rounded-lg p-3 hover:shadow cursor-pointer bg-white"
-                            onClick={() => setSelectedTask(task)}
-                          >
-                            <div className="flex justify-between items-start">
-                              <h4 className="text-sm font-medium text-gray-900">{task.title}</h4>
-                              <span className={`px-2 py-0.5 text-xs rounded-full ${getPriorityClass(task.priority)}`}>
-                                {task.priority}
-                              </span>
-                            </div>
-
-                            {task.description && (
-                              <p className="mt-1 text-xs text-gray-500 line-clamp-2">
-                                {task.description}
-                              </p>
-                            )}
-
-                            <div className="mt-3 flex justify-between items-center">
-                              <div className="flex items-center">
-                                {task.subtasks && task.subtasks.length > 0 && (
-                                  <span className="text-xs text-gray-500">
-                                    {task.subtasks.filter(st => st.status === 'Completed').length}/{task.subtasks.length} subtasks
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="text-xs text-gray-500">
-                                {task.isPersonal ? 'Personal' : 'Project'}
-                              </div>
-                            </div>
+              <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  {Object.entries(tasksByStatus).map(([status, statusTasks]) => (
+                    <Droppable droppableId={status} key={status}>
+                      {(provided, snapshot) => (
+                        <div 
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`bg-white rounded-lg shadow transition-all duration-200 ${snapshot.isDraggingOver ? 'column-dragging-over' : ''}`}
+                          style={getColumnStyle(snapshot.isDraggingOver)}
+                        >
+                          <div className={`p-4 border-b ${snapshot.isDraggingOver ? 'bg-gray-100' : 'bg-white'} transition-colors duration-200`}>
+                            <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                              {getStatusIcon(status)}
+                              <span className="ml-2">{status}</span>
+                              <span className="ml-2 text-sm text-gray-500">({statusTasks.length})</span>
+                            </h3>
                           </div>
-                        ))
+
+                          <div className={`p-4 space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto ${snapshot.isDraggingOver ? 'bg-gray-50' : ''}`}>
+                            {statusTasks.length === 0 ? (
+                              <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center">
+                                <p className="text-gray-500 text-sm py-2">
+                                  {snapshot.isDraggingOver ? 'Drop here to move to ' + status : 'No tasks'}
+                                </p>
+                              </div>
+                            ) : (
+                              statusTasks.map((task, index) => (
+                                <Draggable 
+                                  key={task._id} 
+                                  draggableId={task._id} 
+                                  index={index}
+                                >
+                                  {(provided, snapshot) => (
+                                    <div
+                                      ref={provided.innerRef}
+                                      {...provided.draggableProps}
+                                      {...provided.dragHandleProps}
+                                      style={getItemStyle(
+                                        snapshot.isDragging,
+                                        provided.draggableProps.style
+                                      )}
+                                      className={`border ${task.isUpdating ? 'border-blue-300 task-dropping' : 'border-gray-200'} 
+                                        rounded-lg p-3 hover:shadow cursor-pointer bg-white
+                                        ${snapshot.isDragging ? 'task-dragging' : ''}
+                                        transition-all duration-200 group`}
+                                      onClick={() => !snapshot.isDragging && setSelectedTask(task)}
+                                    >
+                                      {/* Visual indicator for dragging */}
+                                      {!snapshot.isDragging && (
+                                        <div className="absolute -right-2 -top-2 w-6 h-6 bg-gray-100 rounded-full text-gray-400 opacity-0 group-hover:opacity-100 flex items-center justify-center">
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+                                          </svg>
+                                        </div>
+                                      )}
+                                      
+                                      <div className="flex justify-between items-start">
+                                        <h4 className="text-sm font-medium text-gray-900">{task.title}</h4>
+                                        <span className={`px-2 py-0.5 text-xs rounded-full ${getPriorityClass(task.priority)}`}>
+                                          {task.priority}
+                                        </span>
+                                      </div>
+
+                                      {task.description && (
+                                        <p className="mt-1 text-xs text-gray-500 line-clamp-2">
+                                          {task.description}
+                                        </p>
+                                      )}
+
+                                      <div className="mt-3 flex justify-between items-center">
+                                        <div className="flex items-center">
+                                          {task.subtasks && task.subtasks.length > 0 && (
+                                            <span className="text-xs text-gray-500">
+                                              {task.subtasks.filter(st => st.status === 'Completed').length}/{task.subtasks.length} subtasks
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <div className="text-xs text-gray-500">
+                                          {task.isPersonal ? 'Personal' : 'Project'}
+                                        </div>
+                                      </div>
+                                      
+                                      {/* This creates a clone for drag preview */}
+                                      {snapshot.isDragging && (
+                                        <div className="fixed top-0 left-0 w-full h-0 overflow-visible z-50 pointer-events-none">
+                                          <div className="absolute top-1 left-1 p-2 bg-white border border-gray-300 rounded shadow-lg text-sm">
+                                            Moving: {task.title}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </Draggable>
+                              ))
+                            )}
+                            {provided.placeholder}
+                          </div>
+                        </div>
                       )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    </Droppable>
+                  ))}
+                </div>
+              </DragDropContext>
             )}
           </main>
         </div>

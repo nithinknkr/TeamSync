@@ -249,30 +249,56 @@ exports.getProject = async (req, res) => {
       });
     }
     
-    // Check if user is a member of the project
+    // Check if the user is authorized to view this project
     const isMember = project.members.some(member => 
       member.user.toString() === req.user.id
     );
     
-    if (!isMember && project.lead.toString() !== req.user.id) {
+    if (!isMember) {
       return res.status(403).json({
         status: 'fail',
         message: 'You are not authorized to view this project'
       });
     }
+
+    // Calculate project progress based on tasks
+    const totalTasks = await Task.countDocuments({ project: project._id });
+    let progress = 0;
     
-    // Add user role to the response
-    const userRole = project.lead.toString() === req.user.id 
-      ? 'Lead' 
-      : project.members.find(member => member.user.toString() === req.user.id)?.role || 'Member';
+    if (totalTasks > 0) {
+      const completedTasks = await Task.countDocuments({ 
+        project: project._id,
+        status: 'Completed'
+      });
+      
+      progress = Math.round((completedTasks / totalTasks) * 100);
+    }
+    
+    // Get task status breakdown
+    const taskStatusCounts = {
+      total: totalTasks,
+      completed: await Task.countDocuments({ project: project._id, status: 'Completed' }),
+      inProgress: await Task.countDocuments({ project: project._id, status: 'In Progress' }),
+      toDo: await Task.countDocuments({ project: project._id, status: 'To Do' }),
+      blocked: await Task.countDocuments({ project: project._id, status: 'Blocked' })
+    };
+
+    // Determine the user's role in the project
+    const userMember = project.members.find(
+      member => member.user.toString() === req.user.id
+    );
+    
+    const projectData = {
+      ...project.toObject(),
+      userRole: userMember ? userMember.role : 'Member',
+      progress: progress,
+      taskStatusCounts: taskStatusCounts
+    };
     
     res.status(200).json({
       status: 'success',
       data: {
-        project: {
-          ...project._doc,
-          userRole
-        }
+        project: projectData
       }
     });
   } catch (err) {

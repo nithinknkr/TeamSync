@@ -470,6 +470,9 @@ const ProjectDetailPage = () => {
                             style={{ width: `${project.progress || 0}%` }}
                           ></div>
                         </div>
+                        <div className="mt-2 text-xs text-gray-500">
+                          Based on {project.taskStatusCounts?.total || 0} total tasks
+                        </div>
                       </div>
                       
                       <div className="bg-gray-50 p-4 rounded-lg">
@@ -478,19 +481,25 @@ const ProjectDetailPage = () => {
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-gray-600">Completed</span>
                             <span className="text-sm font-medium text-gray-900">
-                              {tasks.filter(task => task.status === 'Completed').length} / {tasks.length}
+                              {project.taskStatusCounts?.completed || 0} / {project.taskStatusCounts?.total || 0}
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-gray-600">In Progress</span>
                             <span className="text-sm font-medium text-gray-900">
-                              {tasks.filter(task => task.status === 'In Progress').length} / {tasks.length}
+                              {project.taskStatusCounts?.inProgress || 0} / {project.taskStatusCounts?.total || 0}
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-gray-600">To Do</span>
                             <span className="text-sm font-medium text-gray-900">
-                              {tasks.filter(task => task.status === 'To Do').length} / {tasks.length}
+                              {project.taskStatusCounts?.toDo || 0} / {project.taskStatusCounts?.total || 0}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">Blocked</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {project.taskStatusCounts?.blocked || 0} / {project.taskStatusCounts?.total || 0}
                             </span>
                           </div>
                         </div>
@@ -525,6 +534,56 @@ const ProjectDetailPage = () => {
                   </div>
                 </div>
               
+                {/* Team Progress */}
+                <div className="bg-white shadow rounded-lg overflow-hidden">
+                  <div className="p-4 border-b border-gray-200">
+                    <h2 className="text-lg font-medium text-gray-900">Team Progress</h2>
+                  </div>
+                  
+                  <div className="p-6">
+                    {members.length === 0 ? (
+                      <div className="text-center text-gray-500 py-4">
+                        No team members yet. Invite members to collaborate.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {members.map(member => {
+                          const completedTasks = member.taskStatus?.completed || 0;
+                          const totalTasks = member.taskCount || 0;
+                          const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                          
+                          return (
+                            <div key={member._id} className="flex items-center space-x-4">
+                              <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                <span className="text-gray-500 font-medium">
+                                  {member.name ? member.name.charAt(0).toUpperCase() : '?'}
+                                </span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-1">
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900 truncate">{member.name}</p>
+                                    <p className="text-xs text-gray-500">
+                                      {member.taskCount || 0} tasks assigned • {member.taskStatus?.completed || 0} completed
+                                    </p>
+                                  </div>
+                                  <span className="text-xs font-medium text-gray-900">{progressPercentage}%</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                  <div 
+                                    className="bg-blue-500 h-1.5 rounded-full" 
+                                    style={{ width: `${progressPercentage}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
                 {/* Recent Activity */}
                 <div className="bg-white shadow rounded-lg overflow-hidden">
                   <div className="p-4 border-b border-gray-200">
@@ -532,10 +591,30 @@ const ProjectDetailPage = () => {
                   </div>
                   
                   <div className="p-6">
-                    {/* This would typically be populated with activity data from the backend */}
-                    <div className="text-center text-gray-500 py-4">
-                      Activity tracking will be implemented in a future update.
-                    </div>
+                    {tasks.length === 0 ? (
+                      <div className="text-center text-gray-500 py-4">
+                        No recent activity. Start by creating tasks.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {tasks.slice(0, 5).map(task => (
+                          <div key={task._id} className="flex items-start space-x-3">
+                            <div className={`mt-0.5 h-4 w-4 rounded-full flex-shrink-0 
+                              ${task.status === 'Completed' ? 'bg-green-500' : 
+                                task.status === 'In Progress' ? 'bg-blue-500' : 
+                                task.status === 'Blocked' ? 'bg-red-500' : 'bg-gray-300'}`}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{task.title}</p>
+                              <p className="text-xs text-gray-500">
+                                Assigned to {task.assignedTo?.name || 'Unassigned'} • 
+                                Due {task.dueDate ? format(new Date(task.dueDate), 'MMM dd, yyyy') : 'No due date'}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
