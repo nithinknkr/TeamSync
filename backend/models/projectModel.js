@@ -72,6 +72,62 @@ projectSchema.virtual('progress').get(function() {
   return 0;
 });
 
+// Add a method to get task counts for each member
+projectSchema.methods.getMemberTaskCounts = async function() {
+  const Task = mongoose.model('Task');
+  
+  // Get all tasks for this project
+  const tasks = await Task.find({ project: this._id });
+  
+  // Create a map to store task counts for each member
+  const memberTaskCounts = {};
+  
+  // Initialize counts for each member
+  this.members.forEach(member => {
+    const memberId = member.user.toString();
+    memberTaskCounts[memberId] = {
+      total: 0,
+      completed: 0,
+      inProgress: 0,
+      todo: 0
+    };
+  });
+  
+  // Count tasks for each member
+  tasks.forEach(task => {
+    const assignedTo = task.assignedTo.toString();
+    if (memberTaskCounts[assignedTo]) {
+      memberTaskCounts[assignedTo].total += 1;
+      
+      // Count by status
+      if (task.status === 'Completed') {
+        memberTaskCounts[assignedTo].completed += 1;
+      } else if (task.status === 'In Progress') {
+        memberTaskCounts[assignedTo].inProgress += 1;
+      } else if (task.status === 'To Do') {
+        memberTaskCounts[assignedTo].todo += 1;
+      }
+    }
+  });
+  
+  return memberTaskCounts;
+};
+
+// Calculate project progress based on task completion
+projectSchema.methods.calculateProgress = async function() {
+  const Task = mongoose.model('Task');
+  
+  const totalTasks = await Task.countDocuments({ project: this._id });
+  if (totalTasks === 0) return 0;
+  
+  const completedTasks = await Task.countDocuments({ 
+    project: this._id,
+    status: 'Completed'
+  });
+  
+  return Math.round((completedTasks / totalTasks) * 100);
+};
+
 const Project = mongoose.model('Project', projectSchema);
 
 module.exports = Project;

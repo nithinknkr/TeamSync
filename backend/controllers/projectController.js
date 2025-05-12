@@ -357,10 +357,53 @@ exports.getProjectMembers = async (req, res) => {
     const memberUsers = await User.find({ _id: { $in: memberIds } })
       .select('name email');
     
-    // Combine user details with role information
+    // Get task counts for each member
+    const memberTaskCounts = await Promise.all(
+      memberIds.map(async (userId) => {
+        const count = await Task.countDocuments({
+          project: project._id,
+          assignedTo: userId
+        });
+        
+        // Get task status breakdown
+        const completed = await Task.countDocuments({
+          project: project._id,
+          assignedTo: userId,
+          status: 'Completed'
+        });
+        
+        const inProgress = await Task.countDocuments({
+          project: project._id,
+          assignedTo: userId,
+          status: 'In Progress'
+        });
+        
+        const todo = await Task.countDocuments({
+          project: project._id,
+          assignedTo: userId,
+          status: 'To Do'
+        });
+        
+        return {
+          userId: userId.toString(),
+          taskCount: count,
+          taskStatus: {
+            completed,
+            inProgress,
+            todo
+          }
+        };
+      })
+    );
+    
+    // Combine user details with role information and task counts
     const membersWithRoles = memberUsers.map(user => {
       const memberInfo = project.members.find(
         member => member.user.toString() === user._id.toString()
+      );
+      
+      const taskInfo = memberTaskCounts.find(
+        count => count.userId === user._id.toString()
       );
       
       return {
@@ -368,7 +411,9 @@ exports.getProjectMembers = async (req, res) => {
         name: user.name,
         email: user.email,
         role: memberInfo.role,
-        joinedAt: memberInfo.joinedAt
+        joinedAt: memberInfo.joinedAt,
+        taskCount: taskInfo?.taskCount || 0,
+        taskStatus: taskInfo?.taskStatus || { completed: 0, inProgress: 0, todo: 0 }
       };
     });
     

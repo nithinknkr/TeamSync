@@ -11,11 +11,13 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [], isP
     priority: initialData?.priority || 'Medium',
     dueDate: initialData?.dueDate ? format(new Date(initialData.dueDate), 'yyyy-MM-dd') : '',
     project: initialData?.project?._id || '',
+    assignedTo: initialData?.assignedTo?._id || '',
     tags: initialData?.tags?.join(', ') || ''
   });
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [projectMembers, setProjectMembers] = useState([]);
   
   // If this is a project task form, set the project ID
   useEffect(() => {
@@ -24,8 +26,32 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [], isP
         ...prev,
         project: projects[0]._id
       }));
+      
+      // Fetch project members when project is selected
+      fetchProjectMembers(projects[0]._id);
     }
   }, [isProjectTask, projects]);
+  
+  // Fetch project members
+  const fetchProjectMembers = async (projectId) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('You must be logged in');
+      
+      const config = {
+        headers: { Authorization: `Bearer ${token}` }
+      };
+      
+      const response = await axios.get(
+        `http://localhost:5000/api/v1/projects/${projectId}/members`,
+        config
+      );
+      
+      setProjectMembers(response.data.data.members);
+    } catch (error) {
+      console.error('Error fetching project members:', error);
+    }
+  };
   
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -193,8 +219,8 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [], isP
             />
           </div>
           
-          {/* Only show project field for project tasks */}
-          {isProjectTask && (
+          {/* Only show project field if multiple projects (hidden but kept for data) */}
+          {isProjectTask && projects.length > 1 && (
             <div>
               <label htmlFor="project" className="block text-sm font-medium text-gray-700">
                 Project
@@ -203,14 +229,40 @@ const TaskForm = ({ onClose, onTaskAdded, initialData = null, projects = [], isP
                 id="project"
                 name="project"
                 value={formData.project}
-                onChange={handleChange}
-                disabled={projects.length === 1} // Disable if there's only one project (from project detail page)
+                onChange={(e) => {
+                  handleChange(e);
+                  fetchProjectMembers(e.target.value);
+                }}
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black sm:text-sm"
               >
                 <option value="">Select a project</option>
                 {projects.map(project => (
                   <option key={project._id} value={project._id}>
                     {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          
+          {/* Team member selection for project tasks */}
+          {isProjectTask && (
+            <div>
+              <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700">
+                Assign To Team Member *
+              </label>
+              <select
+                id="assignedTo"
+                name="assignedTo"
+                value={formData.assignedTo}
+                onChange={handleChange}
+                required
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black sm:text-sm"
+              >
+                <option value="">Select a team member</option>
+                {projectMembers.map(member => (
+                  <option key={member._id} value={member._id}>
+                    {member.name} ({member.role})
                   </option>
                 ))}
               </select>

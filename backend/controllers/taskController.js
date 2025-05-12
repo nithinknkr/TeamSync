@@ -30,22 +30,84 @@ exports.getUserTasks = async (req, res) => {
 // Create a new personal task
 exports.createPersonalTask = async (req, res) => {
   try {
-    // Set the task as personal and assigned to the current user
-    const taskData = {
-      ...req.body,
-      isPersonal: true,
-      assignedTo: req.user.id,
-      assignedBy: req.user.id
-    };
+    // Check if this is a project task (has project ID in query)
+    const projectId = req.query.projectId;
     
-    const newTask = await Task.create(taskData);
-    
-    res.status(201).json({
-      status: 'success',
-      data: {
-        task: newTask
+    if (projectId) {
+      // This is a project task
+      // Verify the user is a member of the project with permission to assign tasks
+      const project = await Project.findById(projectId);
+      
+      if (!project) {
+        return res.status(404).json({
+          status: 'fail',
+          message: 'Project not found'
+        });
       }
-    });
+      
+      // Check if user is a member of the project
+      const userMember = project.members.find(
+        member => member.user.toString() === req.user.id
+      );
+      
+      if (!userMember) {
+        return res.status(403).json({
+          status: 'fail',
+          message: 'You are not a member of this project'
+        });
+      }
+      
+      // Only project lead can assign tasks to others
+      if (userMember.role !== 'Lead' && req.body.assignedTo !== req.user.id) {
+        return res.status(403).json({
+          status: 'fail',
+          message: 'Only project leads can assign tasks to other members'
+        });
+      }
+      
+      // Create project task
+      const taskData = {
+        ...req.body,
+        isPersonal: false,
+        project: projectId,
+        assignedBy: req.user.id
+      };
+      
+      const newTask = await Task.create(taskData);
+      
+      // Update project's lastActivity
+      project.lastActivity = Date.now();
+      await project.save();
+      
+      // Populate the assignedTo field for the response
+      const populatedTask = await Task.findById(newTask._id)
+        .populate('assignedTo', 'name email')
+        .populate('project', 'name');
+      
+      res.status(201).json({
+        status: 'success',
+        data: {
+          task: populatedTask
+        }
+      });
+    } else {
+      // This is a personal task
+      const taskData = {
+        ...req.body,
+        isPersonal: true,
+        assignedTo: req.user.id,
+        assignedBy: req.user.id
+      };
+      
+      const newTask = await Task.create(taskData);
+      
+      res.status(201).json({
+        status: 'success',
+        data: {
+          task: newTask
+        }
+      });
+    }
   } catch (err) {
     res.status(400).json({
       status: 'fail',
